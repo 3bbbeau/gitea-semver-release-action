@@ -1,14 +1,11 @@
 package release
 
 import (
-	"context"
-	"fmt"
 	"strings"
 
-	"github.com/K-Phoen/semver-release-action/internal/pkg/action"
-	"github.com/google/go-github/v45/github"
+	"code.gitea.io/sdk/gitea"
+	"github.com/3bbbeau/gitea-semver-release-action/internal/pkg/action"
 	"github.com/spf13/cobra"
-	"golang.org/x/oauth2"
 )
 
 const releaseTypeNone = "none"
@@ -31,7 +28,7 @@ func Command() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:  "release [REPOSITORY] [TARGET_COMMITISH] [VERSION] [GH_TOKEN]",
-		Args: cobra.ExactArgs(4),
+		Args: cobra.ExactArgs(5),
 		Run: func(cmd *cobra.Command, args []string) {
 			execute(cmd, releaseType, args)
 		},
@@ -55,21 +52,22 @@ func execute(cmd *cobra.Command, releaseType string, args []string) {
 		target:  args[1],
 	}
 
-	ctx := context.Background()
-
-	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: repo.token})
-	client := github.NewClient(oauth2.NewClient(ctx, tokenSource))
+	apiURL := args[4]
+	client, err := gitea.NewClient(apiURL, gitea.SetToken(repo.token))
+	if err != nil {
+		action.Fail(cmd, "could not create gitea client: %s", err)
+	}
 
 	switch releaseType {
 	case releaseTypeNone:
 		return
 	case releaseTypeRelease:
-		if err := createGithubRelease(ctx, client, repo, release); err != nil {
+		if err := createGithubRelease(client, repo, release); err != nil {
 			action.AssertNoError(cmd, err, "could not create GitHub release: %s", err)
 		}
 		return
 	case releaseTypeTag:
-		if err := createLightweightTag(ctx, client, repo, release); err != nil {
+		if err := createLightweightTag(client, repo, release); err != nil {
 			action.AssertNoError(cmd, err, "could not create lightweight tag: %s", err)
 		}
 		return
@@ -78,24 +76,22 @@ func execute(cmd *cobra.Command, releaseType string, args []string) {
 	}
 }
 
-func createLightweightTag(ctx context.Context, client *github.Client, repo repository, release releaseDetails) error {
-	_, _, err := client.Git.CreateRef(ctx, repo.owner, repo.name, &github.Reference{
-		Ref: github.String(fmt.Sprintf("refs/tags/%s", release.version)),
-		Object: &github.GitObject{
-			SHA: &release.target,
-		},
+func createLightweightTag(client *gitea.Client, repo repository, release releaseDetails) error {
+	_, _, err := client.CreateTag(repo.owner, repo.name, gitea.CreateTagOption{
+		TagName: release.version,
+		Target:  release.target,
 	})
 
 	return err
 }
 
-func createGithubRelease(ctx context.Context, client *github.Client, repo repository, release releaseDetails) error {
-	_, _, err := client.Repositories.CreateRelease(ctx, repo.owner, repo.name, &github.RepositoryRelease{
-		Name:            &release.version,
-		TagName:         &release.version,
-		TargetCommitish: &release.target,
-		Draft:           github.Bool(false),
-		Prerelease:      github.Bool(false),
+func createGithubRelease(client *gitea.Client, repo repository, release releaseDetails) error {
+	_, _, err := client.CreateRelease(repo.owner, repo.name, gitea.CreateReleaseOption{
+		Title:        release.version,
+		TagName:      release.version,
+		Target:       release.target,
+		IsDraft:      false,
+		IsPrerelease: false,
 	})
 
 	return err

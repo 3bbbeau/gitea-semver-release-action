@@ -32,9 +32,10 @@ outputs:
 
 runs:
   using: 'docker'
-  image: 'docker://kphoen/semver-release-action:**VERSION_PLACEHOLDER**'
+  image: 'docker://3bbbeau/gitea-semver-release-action:latest'
   args:
     - ${{ inputs.release_branch }}
     - ${{ inputs.release_strategy }}
     - ${{ inputs.tag }}
     - ${{ inputs.tag_format }}
+    - ${{ inputs.api_url }}

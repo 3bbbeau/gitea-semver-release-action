@@ -1,4 +1,7 @@
-# Semver Release Github Action ![](https://github.com/K-Phoen/semver-release-action/workflows/CI/badge.svg)
+# (Fork) Semver Release Gitea Action
+
+> [!NOTE]  
+> Changes in this fork allow this action to work on Gitea. I was too lazy to abstract the codebase to accommodate both clients, so this changeset can be taken to bring that functionality upstream by someone who would like to do so.
 
 Automatically create [SemVer](https://semver.org/) compliant releases based on
 PR labels.

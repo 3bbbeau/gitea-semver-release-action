@@ -1,4 +1,4 @@
-IMAGE=kphoen/semver-release-action
+IMAGE=3bbbeau/gitea-semver-release-action
 VERSION?=latest
 
 .PHONY: lint

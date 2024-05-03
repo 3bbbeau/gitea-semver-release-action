@@ -1,12 +1,12 @@
 package event
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"os"
 
-	"github.com/K-Phoen/semver-release-action/internal/pkg/action"
-	"github.com/K-Phoen/semver-release-action/internal/pkg/semver"
-	"github.com/google/go-github/v45/github"
+	"github.com/3bbbeau/gitea-semver-release-action/internal/pkg/action"
+	"github.com/3bbbeau/gitea-semver-release-action/internal/pkg/semver"
 	"github.com/spf13/cobra"
 )
 
@@ -30,24 +30,24 @@ func executeGuard(cmd *cobra.Command, args []string) {
 	releaseBranch := args[0]
 	event := parseEvent(cmd, args[1])
 
-	if event.Action == nil || *event.Action != "closed" {
+	if event.Action != "closed" {
 		action.Skip(cmd, "pull request not closed")
 	}
 
-	if event.PullRequest.Merged == nil || !*event.PullRequest.Merged {
+	if !event.PullRequest.Merged {
 		action.Skip(cmd, "pull request not merged")
 	}
 
-	if event.PullRequest.Base == nil || event.PullRequest.Base.Ref == nil {
+	if event.PullRequest.Base.Ref == "" {
 		action.Fail(cmd, "could not determine pull request base branch")
 	}
 
-	if *event.PullRequest.Base.Ref != releaseBranch {
+	if event.PullRequest.Base.Ref != releaseBranch {
 		action.Skip(
 			cmd,
 			"pull request not merged into the release branch (expected '%s', got '%s'",
 			releaseBranch,
-			*event.PullRequest.Base.Ref,
+			event.PullRequest.Base.Ref,
 		)
 	}
 
@@ -68,15 +68,15 @@ func executeIncrement(cmd *cobra.Command, args []string) {
 	cmd.Print(increment)
 }
 
-func extractIncrement(cmd *cobra.Command, pr *github.PullRequest) (semver.Increment, bool) {
+func extractIncrement(cmd *cobra.Command, pr PullRequest) (semver.Increment, bool) {
 	validLabelFound := false
 	increment := semver.IncrementPatch
 	for _, label := range pr.Labels {
-		if label.Name == nil {
+		if label.Name == "" {
 			continue
 		}
 
-		inc, err := semver.ParseIncrement(*label.Name)
+		inc, err := semver.ParseIncrement(label.Name)
 		if err != nil {
 			continue
 		}
@@ -93,14 +93,12 @@ func extractIncrement(cmd *cobra.Command, pr *github.PullRequest) (semver.Increm
 	return increment, validLabelFound
 }
 
-func parseEvent(cmd *cobra.Command, filePath string) *github.PullRequestEvent {
-	parsed, err := github.ParseWebHook("pull_request", readEvent(cmd, filePath))
-	action.AssertNoError(cmd, err, "could not parse GitHub event: %s", err)
+func parseEvent(cmd *cobra.Command, filePath string) PullRequestEvent {
+	eventBytes := readEvent(cmd, filePath)
+	event := PullRequestEvent{}
 
-	event, ok := parsed.(*github.PullRequestEvent)
-	if !ok {
-		action.Fail(cmd, "could not parse GitHub event into a PullRequestEvent: %s", err)
-	}
+	err := json.Unmarshal(eventBytes, &event)
+	action.AssertNoError(cmd, err, "could not parse Gitea event: %s", err)
 
 	return event
 }
