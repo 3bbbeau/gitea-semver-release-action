@@ -34,6 +34,9 @@ release ; `tag`: creates a lightweight tag ; `none`: computes the next
 **Optional** Tag to use. If left undefined, it will be computed using the tags
 already present in the repository.
 
+### `api_url`
+**Optional**  Your Gitea instance, without the `/v1/api`. Defaults to `https://gitea.com`
+
 ## Outputs
 
 ### `tag`
@@ -58,9 +61,10 @@ jobs:
     
     steps:
       - name: Tag
-        uses: K-Phoen/semver-release-action@master
+        uses: 3bbbeau/gitea-semver-release-action@master
         with:
           release_branch: master
+          api_url: "https://gitea.mydomain.tld" 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
